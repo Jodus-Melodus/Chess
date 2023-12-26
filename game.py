@@ -1,19 +1,27 @@
 
+import itertools
+
+
 class Piece:
     def __init__(self, color: str) -> None:
         self.color = color
         self.move_multiplier = 1
 
+    def __repr__(self) -> str:
+        return self.icon if self.color == 'black' else self.icon.upper()
+
 
 class Pawn(Piece):
     def __init__(self, color: str) -> None:
         super().__init__(color)
+        self.icon = 'p'
         self.movement = ['nn', 'n', 'nw', 'ne']
 
 
 class Knight(Piece):
     def __init__(self, color: str) -> None:
         super().__init__(color)
+        self.icon = 'n'
         self.movement = ['nnw', 'nne', 'nee',
                          'nww', 'see', 'sww', 'ssw', 'sse']
 
@@ -21,6 +29,7 @@ class Knight(Piece):
 class Rook(Piece):
     def __init__(self, color: str) -> None:
         super().__init__(color)
+        self.icon = 'r'
         self.movement = ['n', 's', 'e', 'w']
         self.move_multiplier = 7
 
@@ -28,6 +37,7 @@ class Rook(Piece):
 class Bishop(Piece):
     def __init__(self, color: str) -> None:
         super().__init__(color)
+        self.icon = 'b'
         self.movement = ['nw', 'sw', 'ne', 'se']
         self.move_multiplier = 7
 
@@ -35,6 +45,7 @@ class Bishop(Piece):
 class Queen(Piece):
     def __init__(self, color: str) -> None:
         super().__init__(color)
+        self.icon = 'q'
         self.movement = ['n', 's', 'e', 'w', 'nw', 'sw', 'ne', 'se']
         self.move_multiplier = 7
 
@@ -42,25 +53,27 @@ class Queen(Piece):
 class King(Piece):
     def __init__(self, color: str) -> None:
         super().__init__(color)
+        self.icon = 'k'
         self.movement = ['n', 's', 'e', 'w', 'nw', 'sw', 'ne', 'se']
 
 
 class Empty(Piece):
     def __init__(self, color: str) -> None:
         super().__init__(color)
+        self.icon = '.'
 
 
 class Tile:
     def __init__(self, **kwargs) -> None:
-        self.color = kwargs['color'] if 'color' in kwargs else ''
-        self.n = kwargs['n'] if 'n' in kwargs else None
-        self.s = kwargs['s'] if 's' in kwargs else None
-        self.w = kwargs['w'] if 'w' in kwargs else None
-        self.e = kwargs['e'] if 'e' in kwargs else None
-        self.nw = kwargs['nw'] if 'nw' in kwargs else None
-        self.ne = kwargs['ne'] if 'ne' in kwargs else None
-        self.sw = kwargs['sw'] if 'sw' in kwargs else None
-        self.se = kwargs['se'] if 'se' in kwargs else None
+        self.color = kwargs.get('color', '')
+        self.n = kwargs.get('n', None)
+        self.e = kwargs.get('e', None)
+        self.s = kwargs.get('s', None)
+        self.w = kwargs.get('w', None)
+        self.ne = kwargs.get('ne', None)
+        self.se = kwargs.get('se', None)
+        self.sw = kwargs.get('sw', None)
+        self.nw = kwargs.get('nw', None)
 
         self.value = Empty(self.color)
 
@@ -97,32 +110,29 @@ class ChessBoard:
         numbers = '12345678'
         self.chessboard = {}
 
-        for letter in letters:
-            for number in numbers:
-                tile_name = letter + number
-                self.chessboard[tile_name] = Tile()
+        for letter, number in itertools.product(letters, numbers):
+            tile_name = letter + number
+            self.chessboard[tile_name] = Tile()
 
-        for letter in letters:
-            for number in numbers:
-                tile_name = letter + number
-                tile = self.chessboard[tile_name]
+        for letter, number in itertools.product(letters, numbers):
+            tile_name = letter + number
+            tile = self.chessboard[tile_name]
 
-                tile.n = self.chessboard.get(letter + str(int(number) + 1))
-                tile.s = self.chessboard.get(letter + str(int(number) - 1))
-                tile.e = self.chessboard.get(chr(ord(letter) + 1) + number)
-                tile.w = self.chessboard.get(chr(ord(letter) - 1) + number)
-                tile.ne = self.chessboard.get(
-                    chr(ord(letter) + 1) + str(int(number) + 1))
-                tile.se = self.chessboard.get(
-                    chr(ord(letter) + 1) + str(int(number) - 1))
-                tile.nw = self.chessboard.get(
-                    chr(ord(letter) - 1) + str(int(number) + 1))
-                tile.sw = self.chessboard.get(
-                    chr(ord(letter) - 1) + str(int(number) - 1))
+            tile.n = self.chessboard.get(letter + str(int(number) + 1))
+            tile.s = self.chessboard.get(letter + str(int(number) - 1))
+            tile.e = self.chessboard.get(chr(ord(letter) + 1) + number)
+            tile.w = self.chessboard.get(chr(ord(letter) - 1) + number)
+            tile.ne = self.chessboard.get(
+                chr(ord(letter) + 1) + str(int(number) + 1))
+            tile.se = self.chessboard.get(
+                chr(ord(letter) + 1) + str(int(number) - 1))
+            tile.nw = self.chessboard.get(
+                chr(ord(letter) - 1) + str(int(number) + 1))
+            tile.sw = self.chessboard.get(
+                chr(ord(letter) - 1) + str(int(number) - 1))
 
     def __repr__(self) -> str:
-        repr_str = '   a b c d e f g h\n'
-        repr_str += ' +----------------\n'
+        repr_str = '   a b c d e f g h\n' + ' +----------------\n'
         for rank in range(8, 0, -1):
             repr_str += f'{rank}| '
             for file in range(97, 105):
@@ -154,17 +164,23 @@ class ChessBoard:
                     index = chr(96 + file) + str(8 - rank)
                     match char:
                         case 'p' | 'P':
-                            piece = Pawn('w' if char.isupper() else 'b')
+                            piece = Pawn(
+                                'white' if char.isupper() else 'black')
                         case 'n' | 'N':
-                            piece = Knight('w' if char.isupper() else 'b')
+                            piece = Knight(
+                                'white' if char.isupper() else 'black')
                         case 'r' | 'R':
-                            piece = Rook('w' if char.isupper() else 'b')
+                            piece = Rook(
+                                'white' if char.isupper() else 'black')
                         case 'b' | 'B':
-                            piece = Bishop('w' if char.isupper() else 'b')
+                            piece = Bishop(
+                                'white' if char.isupper() else 'black')
                         case 'q' | 'Q':
-                            piece = Queen('w' if char.isupper() else 'b')
+                            piece = Queen(
+                                'white' if char.isupper() else 'black')
                         case 'k' | 'K':
-                            piece = King('w' if char.isupper() else 'b')
+                            piece = King(
+                                'white' if char.isupper() else 'black')
 
                     self.chessboard[index].value = piece
                     file += 1
