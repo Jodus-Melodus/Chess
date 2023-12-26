@@ -1,4 +1,5 @@
 import itertools
+import gui
 
 
 class Piece:
@@ -9,13 +10,13 @@ class Piece:
         self.movement = ['n', 's', 'e', 'w', 'nw', 'sw', 'ne', 'se']
 
     def __repr__(self) -> str:
-        return self.icon if self.color == 'black' else self.icon.upper()
+        return self.icon
 
 
 class Pawn(Piece):
     def __init__(self, filerank: str, color: str) -> None:
         super().__init__(filerank, color)
-        self.icon = 'p'
+        self.icon = 'p' if self.color == 'black' else 'P'
         self.movement = ['nn', 'n', 'nw', 'ne'] if self.color == 'white' else [
             'ss', 's', 'sw', 'se']
 
@@ -23,7 +24,7 @@ class Pawn(Piece):
 class Knight(Piece):
     def __init__(self, filerank: str, color: str) -> None:
         super().__init__(filerank, color)
-        self.icon = 'n'
+        self.icon = 'n' if self.color == 'black' else 'N'
         self.movement = ['nnw', 'nne', 'nee',
                          'nww', 'see', 'sww', 'ssw', 'sse']
 
@@ -31,7 +32,7 @@ class Knight(Piece):
 class Rook(Piece):
     def __init__(self, filerank: str, color: str) -> None:
         super().__init__(filerank, color)
-        self.icon = 'r'
+        self.icon = 'r' if self.color == 'black' else 'R'
         self.movement = ['n', 's', 'e', 'w']
         self.move_multiplier = 7
 
@@ -39,7 +40,7 @@ class Rook(Piece):
 class Bishop(Piece):
     def __init__(self, filerank: str, color: str) -> None:
         super().__init__(filerank, color)
-        self.icon = 'b'
+        self.icon = 'b' if self.color == 'black' else 'B'
         self.movement = ['nw', 'sw', 'ne', 'se']
         self.move_multiplier = 7
 
@@ -47,14 +48,14 @@ class Bishop(Piece):
 class Queen(Piece):
     def __init__(self, filerank: str, color: str) -> None:
         super().__init__(filerank, color)
-        self.icon = 'q'
+        self.icon = 'q' if self.color == 'black' else 'Q'
         self.move_multiplier = 7
 
 
 class King(Piece):
     def __init__(self, filerank: str, color: str) -> None:
         super().__init__(filerank, color)
-        self.icon = 'k'
+        self.icon = 'k' if self.color == 'black' else 'K'
 
 
 class Empty(Piece):
@@ -129,12 +130,15 @@ class ChessBoard:
             repr_str += '\n'
         return repr_str + ' +----------------\n   a b c d e f g h'
 
+    def toggle_turn(self) -> None:
+        self.active_color = 'black' if self.active_color == 'white' else 'white'
+
     def generate_board(self, fen: str = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') -> None:
         self.fen = fen
         fen = fen.split(' ')
 
         piece_placement = fen[0]
-        self.active_color = fen[1]
+        self.active_color = 'white' if fen[1] == 'w' else 'black'
         self.castling_availability = fen[2]
         self.en_passant_target = fen[3]
         self.halfmove_clock = int(fen[4])
@@ -176,19 +180,20 @@ class ChessBoard:
         moves = []
 
         for filerank, tile in self.chessboard.items():
-            if isinstance(tile.value, Empty):
-                continue
+            if tile.value.color == self.active_color:
+                if isinstance(tile.value, Empty):
+                    continue
 
-            elif isinstance(tile.value, (Bishop, Rook, Queen, King)):
-                moves.append(self.evaluate_sliding_moves(tile))
+                elif isinstance(tile.value, (Bishop, Rook, Queen, King)):
+                    moves.append(self.evaluate_sliding_moves(tile))
 
-            elif isinstance(tile.value, Knight):
-                moves.append(self.evaluate_knight_moves(tile))
+                elif isinstance(tile.value, Knight):
+                    moves.append(self.evaluate_knight_moves(tile))
 
-            elif isinstance(tile.value, Pawn):
-                moves.append(self.evaluate_pawn_moves(tile))
+                elif isinstance(tile.value, Pawn):
+                    moves.append(self.evaluate_pawn_moves(tile))
 
-        return [i for x in moves for i in x]    
+        return [i for x in moves for i in x]
 
     def evaluate_sliding_moves(self, tile: Tile) -> list[Move]:
         moves = []
@@ -227,7 +232,7 @@ class ChessBoard:
 
             if new_pos:
                 attacked_piece = new_pos.value
-                if piece.color in (attacked_piece.color, ''):
+                if piece.color != attacked_piece.color:
                     moves.append(Move(tile, new_pos))
 
         return moves
@@ -267,17 +272,53 @@ class ChessBoard:
                     ):
                         moves.append(Move(tile, new_pos))
 
-                elif (direction not in ('nw', 'ne', 'sw', 'se') or attacked_piece.color not in (piece.color, '')) and (direction in 'ns' and isinstance(attacked_piece, Empty)):
-                    moves.append(Move(tile, new_pos))
+                elif (direction not in ('nw', 'ne', 'sw', 'se') or attacked_piece.color not in (piece.color, '')):
+                    if direction in {'nn', 'n', 's'} and isinstance(attacked_piece, Empty):
+                        moves.append(Move(tile, new_pos))
 
         return moves
+
+    def make_move(self, move: Move) -> None:
+        self.chessboard.update({move.destination.filerank: move.origin})
+        new_empty = self.chessboard[move.origin.filerank]
+        new_empty.value = Empty(move.origin.filerank, '')
+        self.chessboard.update({move.origin.filerank: new_empty})
+        self.toggle_turn()
+
+    def unmake_move(self, move: Move) -> None:
+        self.chessboard.update({move.origin.filerank: move.origin})
+        self.chessboard.update({move.destination.filerank: move.destination})
+        self.toggle_turn()
+
+
+def calc_total_moves(depth: int, board: ChessBoard, screen: gui.Chessboard):
+    if depth == 0:
+        return 1
+
+    moves = board.generate_moves()
+    total = 0
+
+    for move in moves:
+        board.make_move(move)
+        screen.paint(board.chessboard)
+        total += calc_total_moves(depth - 1, board, screen)
+        board.unmake_move(move)
+        screen.paint(board.chessboard)
+
+    return total
 
 
 if __name__ == '__main__':
     board = ChessBoard()
+    screen = gui.Chessboard()
     board.generate_chessboard()
     board.generate_board()
 
     print(board)
 
+    screen.paint(board.chessboard)
+    ply = 1
 
+    print(calc_total_moves(ply, board, screen))
+
+    input()
