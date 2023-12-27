@@ -2,6 +2,7 @@ import itertools
 import gui
 import time
 import copy
+from alive_progress import alive_bar
 
 
 class Piece:
@@ -284,47 +285,51 @@ class ChessBoard:
         return moves
 
     def make_move(self, move: Move) -> None:
-        # Copy the destination tile and change it's value to the origin tile's value
-        new_destination_tile = self.chessboard[move.destination.filerank].copy(
-        )
-        new_destination_tile.value = move.origin.value
-        self.chessboard.update(
-            {move.destination.filerank: new_destination_tile})
+        new_chessboard = dict(self.chessboard)
 
-        # Copy the origin tile and change it's value to the destination tile's value
-        new_origin_tile = self.chessboard[move.origin.filerank].copy()
-        new_origin_tile.value = Empty(move.origin.filerank, '')
-        self.chessboard.update({move.origin.filerank: new_origin_tile})
+        # Copy the destination tile and change its value to the origin tile's value
+        new_chessboard[move.destination.filerank] = self.chessboard[move.destination.filerank].copy()
+        new_chessboard[move.destination.filerank].value = move.origin.value
+
+        # Copy the origin tile and change its value to the destination tile's value
+        new_chessboard[move.origin.filerank] = self.chessboard[move.origin.filerank].copy()
+        new_chessboard[move.origin.filerank].value = Empty(
+            move.origin.filerank, '')
+
+        self.chessboard = new_chessboard
 
         self.toggle_turn()
 
     def unmake_move(self, move: Move) -> None:
-        new_origin_tile = self.chessboard[move.origin.filerank].copy()
-        new_origin_tile.value = move.origin.value
-        self.chessboard.update({move.origin.filerank: new_origin_tile})
+        new_chessboard = dict(self.chessboard)
 
-        new_destination_tile = self.chessboard[move.destination.filerank].copy(
-        )
-        new_destination_tile.value = move.destination.value
-        self.chessboard.update(
-            {move.destination.filerank: new_destination_tile})
+        # Copy the origin tile and change its value to the destination tile's value
+        new_chessboard[move.origin.filerank] = self.chessboard[move.origin.filerank].copy()
+        new_chessboard[move.origin.filerank].value = move.destination.value
+
+        # Copy the destination tile and change its value to the origin tile's value
+        new_chessboard[move.destination.filerank] = self.chessboard[move.destination.filerank].copy()
+        new_chessboard[move.destination.filerank].value = move.origin.value
+
+        self.chessboard = new_chessboard
 
         self.toggle_turn()
 
 
-def calc_total_moves(depth: int, board: ChessBoard, screen: gui.Chessboard):
+def calc_total_moves(depth: int, board: ChessBoard, pbar: alive_bar, screen):
     if depth == 0:
         return 1
 
     moves = board.generate_moves()
     total = 0
+    bar()
 
     for move in moves:
         board.make_move(move)
-        # screen.paint(board.chessboard)
-        total += calc_total_moves(depth - 1, board, screen)
+        screen.paint(board.chessboard)
+        total += calc_total_moves(depth - 1, board, pbar, screen)
         board.unmake_move(move)
-        # screen.paint(board.chessboard)
+        screen.paint(board.chessboard)
 
     return total
 
@@ -338,8 +343,13 @@ if __name__ == '__main__':
     print(board)
 
     screen.paint(board.chessboard)
-    ply = 3
 
-    print(calc_total_moves(ply, board, screen))
+    with alive_bar() as bar:
+        ply = 3
 
-    input()
+        print(calc_total_moves(ply, board, bar, screen))
+
+
+# 3 -> 7722
+# 2 -> 400
+# 1 -> 20
